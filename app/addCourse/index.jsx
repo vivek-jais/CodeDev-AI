@@ -1,13 +1,14 @@
-import { View, Text, TextInput, StyleSheet, Pressable ,ScrollView} from 'react-native'
+import { View, Text, TextInput, StyleSheet, Pressable ,ScrollView, Alert} from 'react-native'
 import React, { useEffect, useState } from 'react'
 import Colors from '../../constant/Colors'
 import Button from '../../components/Shared/Button'
-import { GenerateCourseAIModel, GenerateTopicsAIModel } from '../../config/AiModel';
+import { GenerateCourseAIModel, GenerateTopicsAIModel, sendAIMessage } from '../../config/AiModel';
 import Prompt from '../../constant/Prompt';
 import { db } from '../../config/FirebaseConfig';
 import { getLocalStorage } from '../../service/Storage';
 import { useRouter } from 'expo-router';
 import { doc, setDoc } from 'firebase/firestore';
+import { jsonrepair } from "jsonrepair";
 export default function AddCourse() {
 
  const [user, setUser] = useState();
@@ -28,16 +29,39 @@ const [selectedTopic,setSelectedTopic] = useState([]);
 
 
 const onGenerateTopic =async()=>{
-  setLoading(true)
-//Get Topi Idea from AI model
-const PROMPT = userInput+Prompt.IDEA
-const aiResp= await GenerateTopicsAIModel.sendMessage(PROMPT);
-const topicIdea = JSON.parse(aiResp.response.text());
-console.log(topicIdea);
-setTopics(topicIdea?.course_titles)
-setLoading(false);
+  try {
+    if (!userInput || userInput.trim() === '') {
+      Alert.alert('Error', 'Please enter a topic description');
+      return;
+    }
 
-  
+    setLoading(true);
+    //Get Topic Idea from AI model
+    const PROMPT = userInput + Prompt.IDEA;
+    const aiResp = await sendAIMessage(GenerateTopicsAIModel, PROMPT);
+    const responseText = aiResp.response.text();
+    
+    console.log('Raw Response:', responseText.substring(0, 200));
+
+    // Parse JSON with fallback handling
+    let topicIdea;
+    try {
+      topicIdea = extractValidJSON(responseText);
+    } catch (parseError) {
+      console.error('JSON parsing error:', parseError.message);
+      console.error('Full response:', responseText);
+      Alert.alert('Error', 'Invalid response format from AI. Please try again.');
+      return;
+    }
+
+    console.log('Topics Generated:', topicIdea);
+    setTopics(topicIdea?.course_titles || []);
+  } catch (error) {
+    console.error('Topic Generation Error:', error);
+    Alert.alert('Error', `Failed to generate topics: ${error.message}`);
+  } finally {
+    setLoading(false);
+  }
 }
 
 const onTopicSelect=(topic)=>{
@@ -55,44 +79,176 @@ const isTopicSelected =(topic)=>{
   const selection = selectedTopic.find(item=>item==topic);
   return selection?true:false
 }
+// Helper function to extract and parse JSON from response
+// const extractValidJSON = (responseText) => {
+//   if (!responseText) {
+//     throw new Error('Response text is empty');
+//   }
+
+//   try {
+//     // Trim and clean the response
+//     let cleanedText = responseText.trim();
+    
+//     // Remove any markdown code block formatting
+//     cleanedText = cleanedText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+//     cleanedText = cleanedText.trim();
+    
+//     console.log('Cleaned text length:', cleanedText.length);
+
+//     // First try direct parsing on cleaned text
+//     try {
+//       const parsed = JSON.parse(cleanedText);
+//       console.log('Successfully parsed JSON directly');
+//       return parsed;
+//     } catch (directError) {
+//       console.log('Direct parsing failed');
+//     }
+
+//     // Extract JSON object - find the outermost braces more carefully
+//     let startIndex = cleanedText.indexOf('{');
+//     let endIndex = -1;
+//     let braceCount = 0;
+    
+//     if (startIndex !== -1) {
+//       // Count braces to find the matching closing brace
+//       for (let i = startIndex; i < cleanedText.length; i++) {
+//         if (cleanedText[i] === '{') braceCount++;
+//         if (cleanedText[i] === '}') braceCount--;
+//         if (braceCount === 0 && i > startIndex) {
+//           endIndex = i;
+//           break;
+//         }
+//       }
+//     }
+    
+//     if (startIndex !== -1 && endIndex !== -1) {
+//       const jsonString = cleanedText.substring(startIndex, endIndex + 1);
+//       console.log('Extracted JSON length:', jsonString.length);
+      
+//       try {
+//         const parsed = JSON.parse(jsonString);
+//         console.log('Successfully parsed extracted JSON');
+//         return parsed;
+//       } catch (extractError) {
+//         console.log('Failed to parse extracted JSON:', extractError.message);
+        
+//         // Try to fix and retry
+//         let fixed = jsonString
+//           .replace(/'/g, '"')
+//           .replace(/\n\s*/g, ' ')
+//           .replace(/:\s*'/g, ': "')
+//           .replace(/,\s*"/g, '", "')
+//           .replace(/,\s*}/g, '}')
+//           .replace(/,\s*]/g, ']');
+        
+//         try {
+//           const parsedFixed = JSON.parse(fixed);
+//           console.log('Successfully parsed fixed JSON');
+//           return parsedFixed;
+//         } catch (fixError) {
+//           console.log('Failed to parse fixed JSON');
+//         }
+//       }
+//     }
+
+//     console.error('Could not extract complete JSON. Response length:', responseText.length);
+//     throw new Error(`Incomplete or invalid JSON response. Length: ${responseText.length} chars`);
+//   } catch (error) {
+//     console.error('extractValidJSON error:', error.message);
+//     throw error;
+//   }
+// };
+
+
+
+
+function extractValidJSON(text) {
+  try {
+    const cleaned = text
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
+
+    const repaired = jsonrepair(cleaned);
+
+    return JSON.parse(repaired);
+
+  } catch (error) {
+    console.error("JSON parse failed:", error);
+    console.log("Bad response:", text);
+    return null;
+  }
+}
+
 // use To generate Course using ai model
 const onGenerateCourse=async()=>{
-  setLoading(true)
-  
-const PROMPT = selectedTopic+Prompt.COURSE;
-try{
-const aiResp = await GenerateCourseAIModel.sendMessage(PROMPT)
+  try{
+    if (!selectedTopic || selectedTopic.length === 0) {
+      Alert.alert('Error', 'Please select at least one topic');
+      return;
+    }
 
-
-const resp= JSON.parse(aiResp.response.text());
-const courses =  resp.course.courses;
-console.log(courses);
-
-
-console.log(courses);
-//Save Info to database
-courses?.forEach(async(course)=>{
-  const docId = Date.now().toString()
-  await setDoc(doc(db,'Courses',docId),{
-    ...course,
-    createdOn: new Date(),
-    createdBy:user?.email,
-    docId: docId
-
-  })
-})
-router.push('/(tabs)')
-setLoading(false)
-  }
-  catch(e){
-    console.log(e);
+    setLoading(true);
+    const PROMPT = selectedTopic + Prompt.COURSE;
+    const aiResp = await sendAIMessage(GenerateCourseAIModel, PROMPT);
+    const responseText = aiResp.response.text();
     
-    setLoading(false)
+    console.log('Raw Response:', responseText.substring(0, 200)); // Log first 200 chars for debugging
+
+    // Parse JSON with fallback handling
+    let resp;
+    try {
+      resp =  extractValidJSON(responseText);
+    } catch (parseError) {
+      console.error('JSON parsing error:', parseError.message);
+      console.error('Full response:', responseText);
+      Alert.alert('Error', 'Invalid response format from AI. Please try again.');
+      return;
+    }
+
+    const courses = resp.course?.courses || resp.courses || [];
+    
+    if (!courses || courses.length === 0) {
+      throw new Error('No courses generated from AI');
+    }
+
+    console.log('Courses Generated:', courses);
+
+    //Save Info to database
+    let firstCourseId = null;
+    courses?.forEach(async(course)=>{
+      const docId = Date.now().toString();
+      if (!firstCourseId) {
+        firstCourseId = docId;
+      }
+      await setDoc(doc(db,'Courses',docId),{
+        ...course,
+        createdOn: new Date(),
+        createdBy:user?.email,
+        docId: docId
+      });
+    });
+    
+    Alert.alert('Success', 'Courses created successfully!');
+    // Navigate to the first generated course page
+    if (firstCourseId) {
+      setTimeout(() => {
+        router.push({
+          pathname: '/courseView/[courseId]',
+          params: { courseId: firstCourseId }
+        });
+      }, 500);
+    } else {
+      router.push('/(tabs)');
+    }
   }
-
-
-
-
+  catch(error){
+    console.error('Course Generation Error:', error);
+    Alert.alert('Error', `Failed to generate courses: ${error.message}`);
+  }
+  finally {
+    setLoading(false);
+  }
 }
   return (
     <ScrollView style={{

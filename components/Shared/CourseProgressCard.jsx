@@ -7,7 +7,8 @@ import * as Progress from 'react-native-progress';
 export default function CourseProgressCard({item,width=280}) {
     const GetCompletedChapters =(course)=>{
         const completedChapter = course?.completedChapter?.length;
-        const perc = completedChapter/course?.chapters?.length;
+        const totalChapter = course?.chapters?.length;
+        const perc = completedChapter/totalChapter;
         return perc;
       }
 

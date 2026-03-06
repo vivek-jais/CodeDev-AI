@@ -5,69 +5,26 @@ export default {
     - User want to learn about the topic
     - Generate 5-7 Course title for study (Short)
     - Make sure it is releated to description
-    - Output will be ARRAY of String in JSON FORMAT only
-    - Do not add any plain text in output,
+    - Output MUST be VALID JSON with structure: {"course_titles": ["title1", "title2", ...]}
+    - Do not add any plain text before or after JSON
+    - Response MUST start with { and end with }
     `,
-  // - Chapter Explain in HTML Form, (Code example if required), add line break if required
-  COURSE: dedent`: As you are coaching teacher
-    - User want to learn about all topics
-    - Create 2 Courses With Course Name, Description, and 5/8 Chapters in each course
-    - Make sure to add chapters 
-    - List Content in each chapter along with Description in 5 to 8 lines
-    - Do not Just Explain what chapter about, Explain in Detail with Example
-    - Also Make Easy, Moderate and Advance Course depends on topics
-    - Add CourseBanner Image from ('/banner1.png','/banner2.png','/banner3.png','/banner4.png','/banner5.png','/banner6.png'), select It randomly
-    - Explain the chapter content as detailed tutorial with list of content
-    - Generate 10 Quizz, 10 Flashcard and 10 Questions answer
-    - Tag each course to one of the categorty from :["Tech & Coding","Business & Finance","Health & Fitness","Science & Engineering","Arts & Creativity"]
-    - Output in JSON Format only 
-    -  {
-      "course": { "courses": [
-  {
-    "courseTitle": '<Intro to Python>',
-    "description": '',
-    "banner_image": "/banner1.png",
-    "category":"",
-    "chapters": [
-      {
-        chapterName: '',
-        content: [
-          {
-            topic: '<Topic Name in 2 to 4 worlds ex.(Creating Variables)>'
-            explain: '< Detailed Explaination in 5 to 8 Lines if required>',
-            code: '<Code example of required else null',
-            example: '< example of required else null'
-          },
-          
-            ...
-          
-        ]
-      }
-    ],
-    quiz:[
-      {
-        question:'',
-        options:['a',b,c,d],
-        correctAns:''
-      }
-    ],
-    flashcards:[
-      {
-        front:'',
-        back:''
-      }
-    ],
-    qa:[
-      {
-        question:'',
-        answer:''
-      }
-    ]
-  }
-]
-}
+  COURSE: dedent`: Create simple, concise courses about the learning topics.
+    - Create 1-2 Courses ONLY (not more)
+    - Each course MUST have: courseTitle, description (2 sentences), banner_image (pick randomly from /banner1.png to /banner6.png), category, chapters (4-5 chapters)
+    - Each chapter MUST have: chapterName and content array with 2-3 items
+    - Each content item MUST have: topic (short title), explain (2-3 lines max), example (brief example)
+    - NO quizzes, NO flashcards, NO Q&A sections
+    - NO code examples, keep it simple and readable
+    - Keep explanations SHORT (2-3 lines each)
+    - Categories: "Tech & Coding", "Business & Finance", "Health & Fitness", "Science & Engineering", "Arts & Creativity"
+    - Output MUST be VALID, COMPLETE JSON with this exact structure:
+    {"course": {"courses": [{"courseTitle": "Title", "description": "Desc", "banner_image": "/banner1.png", "category": "Tech & Coding", "chapters": [{"chapterName": "Ch", "content": [{"topic": "T", "explain": "E", "example": "Ex"}]}]}]}}
+    - IMPORTANT: Response MUST start with { and MUST end with }
+    - Do not add any plain text, markdown, or code blocks
+    - Ensure JSON is COMPLETE (no truncation)
     `
-}
+};
 
 
 
